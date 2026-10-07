@@ -1,47 +1,98 @@
----
-title: "Lab 4 - Mincer Wage Regression"
-output: html_document
-date: "2026-10-01"
----
-
-```{r}
 # ============================================================
 # LAB 4 - MINCER WAGE REGRESSION
-# Race, Education, Age, Gender, Hispanic Status, and Income
+#
+# Research Question:
+# How is race associated with income when considering
+# age, education, gender, and Hispanic status?
 # ============================================================
 
+```{r}
 
-# ============================================================
-# 1. LOAD PACKAGES
-# ============================================================
+install.packages("gridExtra")
+
+# LOAD PACKAGES
 
 library(dplyr)
 library(ggplot2)
 library(AER)
-
-# If "scales" is not installed, run this ONCE in the Console:
-# install.packages("scales")
-
 library(scales)
+library(gridExtra)
+library(grid)
 
 
-# ============================================================
-# 2. LOAD THE HOUSEHOLD PULSE DATA
-# ============================================================
+# FUNCTION FOR WHITE VISUAL TABLES
 
-# OPTION 1:
-# This lets you manually select d_HHP2020_241.Rdata.
-# This is the safest option if R cannot find the file.
+show_table <- function(data, title) {
+
+  table_theme <- ttheme_minimal(
+    base_size = 11,
+
+    core = list(
+      bg_params = list(
+        fill = "white",
+        col = "grey80"
+      ),
+      fg_params = list(
+        col = "black"
+      )
+    ),
+
+    colhead = list(
+      bg_params = list(
+        fill = "white",
+        col = "grey70"
+      ),
+      fg_params = list(
+        col = "black",
+        fontface = "bold"
+      )
+    )
+  )
+
+  table_plot <- tableGrob(
+    data,
+    rows = NULL,
+    theme = table_theme
+  )
+
+  title_plot <- textGrob(
+    title,
+    gp = gpar(
+      fontsize = 16,
+      fontface = "bold",
+      col = "black"
+    )
+  )
+
+  final_table <- arrangeGrob(
+    title_plot,
+    table_plot,
+    ncol = 1,
+    heights = c(0.12, 0.88)
+  )
+
+  grid.newpage()
+
+  grid.draw(
+    rectGrob(
+      gp = gpar(
+        fill = "white",
+        col = "white"
+      )
+    )
+  )
+
+  grid.draw(final_table)
+}
+
+
+# LOAD DATA
+# Select d_HHP2020_241.Rdata
 
 load(file.choose())
 
-# After the window opens, select:
-# d_HHP2020_241.Rdata
 
-
-# ============================================================
-# 3. CREATE PRIME-AGE LABOR FORCE SAMPLE
-# ============================================================
+# CREATE PRIME-AGE SAMPLE
 
 prime_age_laborforce_data <- d_HHP2020_24 %>%
   filter(
@@ -52,85 +103,126 @@ prime_age_laborforce_data <- d_HHP2020_24 %>%
   )
 
 
-# ============================================================
-# 4. CHECK THE DATA
-# ============================================================
+# CREATE AGE GROUPS
 
-summary(prime_age_laborforce_data)
+prime_age_laborforce_data <- prime_age_laborforce_data %>%
+  mutate(
+    Age_Group = case_when(
+      Age >= 25 & Age <= 34 ~ "25-34",
+      Age >= 35 & Age <= 44 ~ "35-44",
+      Age >= 45 & Age <= 55 ~ "45-55"
+    )
+  )
 
-summary(prime_age_laborforce_data$Age)
 
-summary(prime_age_laborforce_data$income_midpoint)
+# TABLE 1: OVERALL INCOME STATISTICS
 
+overall_income_statistics <- data.frame(
 
-# ============================================================
-# 5. BASIC CROSSTABS
-# ============================================================
+  Statistic = c(
+    "Number of Observations",
+    "Mean Income",
+    "Median Income",
+    "Standard Deviation",
+    "Minimum Income",
+    "Maximum Income"
+  ),
 
-table(prime_age_laborforce_data$Education)
+  Value = c(
 
-table(prime_age_laborforce_data$Gender)
+    nrow(prime_age_laborforce_data),
 
-table(prime_age_laborforce_data$Race)
+    mean(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    ),
 
-table(prime_age_laborforce_data$Hispanic)
+    median(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    ),
 
-table(
-  prime_age_laborforce_data$Education,
-  prime_age_laborforce_data$Race
+    sd(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    ),
+
+    min(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    ),
+
+    max(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    )
+  )
+)
+
+overall_income_statistics$Value <-
+  round(
+    overall_income_statistics$Value,
+    2
+  )
+
+show_table(
+  overall_income_statistics,
+  "Table 1: Overall Income Statistics"
 )
 
 
-# ============================================================
-# 6. MEAN INCOME BY EDUCATION
-# ============================================================
-
-mean_income_education <- prime_age_laborforce_data %>%
-  group_by(Education) %>%
-  summarise(
-    Mean_Income = mean(
-      income_midpoint,
-      na.rm = TRUE
-    ),
-    N = n(),
-    .groups = "drop"
-  )
-
-# Make income easier to read
-mean_income_education_table <- mean_income_education %>%
-  mutate(
-    Mean_Income = dollar(Mean_Income)
-  )
-
-print(mean_income_education_table)
-
-
-# ============================================================
-# 7. MEAN INCOME BY RACE
-# ============================================================
+# TABLE 2: INCOME STATISTICS BY RACE
 
 mean_income_race <- prime_age_laborforce_data %>%
   group_by(Race) %>%
   summarise(
+
     Mean_Income = mean(
       income_midpoint,
       na.rm = TRUE
     ),
+
+    Median_Income = median(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    SD_Income = sd(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
     N = n(),
+
     .groups = "drop"
   )
 
-mean_income_race_table <- mean_income_race %>%
+race_table_display <- mean_income_race %>%
   mutate(
-    Mean_Income = dollar(Mean_Income)
+
+    Mean_Income = dollar(
+      Mean_Income,
+      accuracy = 1
+    ),
+
+    Median_Income = dollar(
+      Median_Income,
+      accuracy = 1
+    ),
+
+    SD_Income = dollar(
+      SD_Income,
+      accuracy = 1
+    )
   )
 
-print(mean_income_race_table)
+show_table(
+  race_table_display,
+  "Table 2: Income Statistics by Race"
+)
 
 
-# ============================================================
-# 8. GRAPH: MEAN INCOME BY RACE
-# ============================================================
+# GRAPH: MEAN INCOME BY RACE
 
 ggplot(
   mean_income_race,
@@ -140,85 +232,129 @@ ggplot(
     fill = Race
   )
 ) +
+
   geom_col(
     width = 0.7,
     show.legend = FALSE
   ) +
+
+  geom_text(
+    aes(
+      label = dollar(
+        Mean_Income,
+        accuracy = 1
+      )
+    ),
+    vjust = -0.5,
+    size = 3.5
+  ) +
+
   scale_y_continuous(
     labels = dollar_format(),
     expand = expansion(
-      mult = c(0, 0.08)
+      mult = c(0, 0.12)
     )
   ) +
+
   labs(
     title = "Mean Income by Race",
     subtitle = "Prime-Age Workers, Ages 25-55",
     x = "Race",
     y = "Mean Income"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 9. MEAN INCOME BY RACE AND EDUCATION
-# ============================================================
+# TABLE 3: INCOME BY RACE AND EDUCATION
 
-mean_income_race_education <-
-  prime_age_laborforce_data %>%
+race_education_table <- prime_age_laborforce_data %>%
   group_by(
     Race,
     Education
   ) %>%
   summarise(
+
     Mean_Income = mean(
       income_midpoint,
       na.rm = TRUE
     ),
+
+    Median_Income = median(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    SD_Income = sd(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
     N = n(),
+
     .groups = "drop"
   )
 
-mean_income_race_education_table <-
-  mean_income_race_education %>%
+race_education_display <- race_education_table %>%
   mutate(
-    Mean_Income = dollar(Mean_Income)
+
+    Mean_Income = dollar(
+      Mean_Income,
+      accuracy = 1
+    ),
+
+    Median_Income = dollar(
+      Median_Income,
+      accuracy = 1
+    ),
+
+    SD_Income = dollar(
+      SD_Income,
+      accuracy = 1
+    )
   )
 
-print(mean_income_race_education_table)
+show_table(
+  race_education_display,
+  "Table 3: Income by Race and Education"
+)
 
 
-# ============================================================
-# 10. GRAPH: RACE + EDUCATION
-# ============================================================
+# GRAPH: MEAN INCOME BY RACE AND EDUCATION
 
 ggplot(
-  mean_income_race_education,
+  race_education_table,
   aes(
     x = Education,
     y = Mean_Income,
     fill = Race
   )
 ) +
+
   geom_col(
     position = position_dodge(
       width = 0.8
     ),
     width = 0.7
   ) +
+
   scale_y_continuous(
     labels = dollar_format(),
     expand = expansion(
       mult = c(0, 0.08)
     )
   ) +
+
   labs(
     title = "Mean Income by Race and Education",
     subtitle = "Prime-Age Workers, Ages 25-55",
@@ -226,45 +362,96 @@ ggplot(
     y = "Mean Income",
     fill = "Race"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     axis.text.x = element_text(
       angle = 35,
       hjust = 1
     ),
+
     legend.position = "bottom",
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 11. MEAN INCOME BY RACE AND AGE
-# ============================================================
+# TABLE 4: INCOME BY RACE AND AGE GROUP
 
-mean_income_age_race <-
-  prime_age_laborforce_data %>%
+race_age_table <- prime_age_laborforce_data %>%
+  group_by(
+    Race,
+    Age_Group
+  ) %>%
+  summarise(
+
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    Median_Income = median(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    SD_Income = sd(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    N = n(),
+
+    .groups = "drop"
+  )
+
+race_age_display <- race_age_table %>%
+  mutate(
+
+    Mean_Income = dollar(
+      Mean_Income,
+      accuracy = 1
+    ),
+
+    Median_Income = dollar(
+      Median_Income,
+      accuracy = 1
+    ),
+
+    SD_Income = dollar(
+      SD_Income,
+      accuracy = 1
+    )
+  )
+
+show_table(
+  race_age_display,
+  "Table 4: Income by Race and Age Group"
+)
+
+
+# GRAPH: MEAN INCOME BY AGE AND RACE
+
+mean_income_age_race <- prime_age_laborforce_data %>%
   group_by(
     Age,
     Race
   ) %>%
   summarise(
+
     Mean_Income = mean(
       income_midpoint,
       na.rm = TRUE
     ),
-    N = n(),
+
     .groups = "drop"
   )
-
-
-# ============================================================
-# 12. GRAPH: RACE + AGE
-# ============================================================
 
 ggplot(
   mean_income_age_race,
@@ -274,12 +461,15 @@ ggplot(
     color = Race
   )
 ) +
+
   geom_line(
     linewidth = 1.1
   ) +
+
   scale_y_continuous(
     labels = dollar_format()
   ) +
+
   labs(
     title = "Mean Income by Age and Race",
     subtitle = "Prime-Age Workers, Ages 25-55",
@@ -287,67 +477,97 @@ ggplot(
     y = "Mean Income",
     color = "Race"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     legend.position = "bottom",
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 13. MEAN INCOME BY RACE AND GENDER
-# ============================================================
+# TABLE 5: INCOME BY RACE AND GENDER
 
-mean_income_race_gender <-
-  prime_age_laborforce_data %>%
+race_gender_table <- prime_age_laborforce_data %>%
   group_by(
     Race,
     Gender
   ) %>%
   summarise(
+
     Mean_Income = mean(
       income_midpoint,
       na.rm = TRUE
     ),
+
+    Median_Income = median(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    SD_Income = sd(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
     N = n(),
+
     .groups = "drop"
   )
 
-mean_income_race_gender_table <-
-  mean_income_race_gender %>%
+race_gender_display <- race_gender_table %>%
   mutate(
-    Mean_Income = dollar(Mean_Income)
+
+    Mean_Income = dollar(
+      Mean_Income,
+      accuracy = 1
+    ),
+
+    Median_Income = dollar(
+      Median_Income,
+      accuracy = 1
+    ),
+
+    SD_Income = dollar(
+      SD_Income,
+      accuracy = 1
+    )
   )
 
-print(mean_income_race_gender_table)
+show_table(
+  race_gender_display,
+  "Table 5: Income by Race and Gender"
+)
 
 
-# ============================================================
-# 14. GRAPH: RACE + GENDER
-# ============================================================
+# GRAPH: MEAN INCOME BY RACE AND GENDER
 
 ggplot(
-  mean_income_race_gender,
+  race_gender_table,
   aes(
     x = Race,
     y = Mean_Income,
     fill = Gender
   )
 ) +
+
   geom_col(
     position = "dodge",
     width = 0.7
   ) +
+
   scale_y_continuous(
     labels = dollar_format(),
     expand = expansion(
       mult = c(0, 0.08)
     )
   ) +
+
   labs(
     title = "Mean Income by Race and Gender",
     subtitle = "Prime-Age Workers, Ages 25-55",
@@ -355,68 +575,98 @@ ggplot(
     y = "Mean Income",
     fill = "Gender"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     legend.position = "bottom",
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 15. MEAN INCOME BY RACE AND HISPANIC STATUS
-# ============================================================
+# TABLE 6: INCOME BY RACE AND HISPANIC STATUS
 
-mean_income_race_hispanic <-
-  prime_age_laborforce_data %>%
+race_hispanic_table <- prime_age_laborforce_data %>%
   group_by(
     Race,
     Hispanic
   ) %>%
   summarise(
+
     Mean_Income = mean(
       income_midpoint,
       na.rm = TRUE
     ),
+
+    Median_Income = median(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
+    SD_Income = sd(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+
     N = n(),
+
     .groups = "drop"
   )
 
-mean_income_race_hispanic_table <-
-  mean_income_race_hispanic %>%
+race_hispanic_display <- race_hispanic_table %>%
   mutate(
-    Mean_Income = dollar(Mean_Income)
+
+    Mean_Income = dollar(
+      Mean_Income,
+      accuracy = 1
+    ),
+
+    Median_Income = dollar(
+      Median_Income,
+      accuracy = 1
+    ),
+
+    SD_Income = dollar(
+      SD_Income,
+      accuracy = 1
+    )
   )
 
-print(mean_income_race_hispanic_table)
+show_table(
+  race_hispanic_display,
+  "Table 6: Income by Race and Hispanic Status"
+)
 
 
-# ============================================================
-# 16. GRAPH: RACE + HISPANIC STATUS
-# ============================================================
+# GRAPH: MEAN INCOME BY RACE AND HISPANIC STATUS
 
 ggplot(
-  mean_income_race_hispanic,
+  race_hispanic_table,
   aes(
     x = Race,
     y = Mean_Income,
     fill = Hispanic
   )
 ) +
+
   geom_col(
     position = "dodge",
     width = 0.7
   ) +
+
   scale_y_continuous(
     labels = dollar_format(),
     expand = expansion(
       mult = c(0, 0.08)
     )
   ) +
+
   labs(
     title = "Mean Income by Race and Hispanic Status",
     subtitle = "Prime-Age Workers, Ages 25-55",
@@ -424,72 +674,246 @@ ggplot(
     y = "Mean Income",
     fill = "Hispanic Status"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     legend.position = "bottom",
     panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 17. MAIN LINEAR REGRESSION
-# ============================================================
+# MAIN REGRESSION
 
 model_1 <- lm(
+
   income_midpoint ~
+
     Age +
+
     Gender +
+
     Education +
+
     Race +
+
     Hispanic,
+
   data = prime_age_laborforce_data
 )
 
-summary(model_1)
+
+# TABLE 7: MAIN REGRESSION RESULTS
+
+regression_results <-
+  summary(model_1)$coefficients
+
+confidence_intervals <-
+  confint(model_1)
+
+regression_table <- data.frame(
+
+  Variable =
+    rownames(regression_results),
+
+  Coefficient =
+    regression_results[, 1],
+
+  Standard_Error =
+    regression_results[, 2],
+
+  T_Statistic =
+    regression_results[, 3],
+
+  P_Value =
+    regression_results[, 4],
+
+  CI_Lower =
+    confidence_intervals[, 1],
+
+  CI_Upper =
+    confidence_intervals[, 2],
+
+  row.names = NULL
+)
+
+regression_table <- regression_table %>%
+  mutate(
+
+    Coefficient = round(
+      Coefficient,
+      2
+    ),
+
+    Standard_Error = round(
+      Standard_Error,
+      2
+    ),
+
+    T_Statistic = round(
+      T_Statistic,
+      2
+    ),
+
+    P_Value = round(
+      P_Value,
+      4
+    ),
+
+    CI_Lower = round(
+      CI_Lower,
+      2
+    ),
+
+    CI_Upper = round(
+      CI_Upper,
+      2
+    )
+  )
+
+regression_table_display <- regression_table
+
+names(regression_table_display) <- c(
+  "Variable",
+  "Coefficient",
+  "Std. Error",
+  "t-stat",
+  "p-value",
+  "95% CI Lower",
+  "95% CI Upper"
+)
+
+show_table(
+  regression_table_display,
+  "Table 7: Main Regression Results"
+)
 
 
-# ============================================================
-# 18. CONFIDENCE INTERVALS
-# ============================================================
+# TABLE 8: ROBUST STANDARD ERRORS
 
-confint(model_1)
+robust_results <- coeftest(
 
-
-# ============================================================
-# 19. CLASSICAL STANDARD ERRORS
-# ============================================================
-
-coeftest(model_1)
-
-
-# ============================================================
-# 20. ROBUST STANDARD ERRORS
-# ============================================================
-
-coeftest(
   model_1,
+
   vcov = vcovHC(
     model_1,
     type = "HC1"
   )
 )
 
+robust_table <- data.frame(
 
-# ============================================================
-# 21. PREDICTED VALUES:
-# BLACK HISPANIC FEMALE WITH ADVANCED DEGREE
-# ============================================================
+  Variable =
+    rownames(robust_results),
+
+  Coefficient =
+    robust_results[, 1],
+
+  Robust_SE =
+    robust_results[, 2],
+
+  T_Statistic =
+    robust_results[, 3],
+
+  P_Value =
+    robust_results[, 4],
+
+  row.names = NULL
+)
+
+robust_table <- robust_table %>%
+  mutate(
+
+    Coefficient = round(
+      Coefficient,
+      2
+    ),
+
+    Robust_SE = round(
+      Robust_SE,
+      2
+    ),
+
+    T_Statistic = round(
+      T_Statistic,
+      2
+    ),
+
+    P_Value = round(
+      P_Value,
+      4
+    )
+  )
+
+robust_table_display <- robust_table
+
+names(robust_table_display) <- c(
+  "Variable",
+  "Coefficient",
+  "Robust SE",
+  "t-stat",
+  "p-value"
+)
+
+show_table(
+  robust_table_display,
+  "Table 8: Regression Results with Robust Standard Errors"
+)
+
+
+# TABLE 9: OVERALL REGRESSION MODEL STATISTICS
+
+model_statistics <- data.frame(
+
+  Statistic = c(
+    "Number of Observations",
+    "R-Squared",
+    "Adjusted R-Squared",
+    "Residual Standard Error"
+  ),
+
+  Value = c(
+
+    nobs(model_1),
+
+    summary(model_1)$r.squared,
+
+    summary(model_1)$adj.r.squared,
+
+    sigma(model_1)
+  )
+)
+
+model_statistics$Value <-
+  round(
+    model_statistics$Value,
+    4
+  )
+
+show_table(
+  model_statistics,
+  "Table 9: Overall Regression Model Statistics"
+)
+
+
+# PREDICTED INCOME
 
 to_be_predicted1 <- data.frame(
+
   Age = 25:55,
+
   Gender = "female",
+
   Education = "adv degree",
+
   Race = "Black",
+
   Hispanic = "Hispanic"
 )
 
@@ -499,16 +923,16 @@ to_be_predicted1$yhat <- predict(
 )
 
 
-# ============================================================
-# 22. PREDICTED VALUES:
-# SAME PROFILE WITH HIGH SCHOOL EDUCATION
-# ============================================================
-
 to_be_predicted2 <- data.frame(
+
   Age = 25:55,
+
   Gender = "female",
+
   Education = "high school",
+
   Race = "Black",
+
   Hispanic = "Hispanic"
 )
 
@@ -518,16 +942,14 @@ to_be_predicted2$yhat <- predict(
 )
 
 
-# ============================================================
-# 23. COMBINE PREDICTIONS
-# ============================================================
-
 prediction_data <- rbind(
+
   data.frame(
     Age = to_be_predicted1$Age,
     Predicted_Income = to_be_predicted1$yhat,
     Education = "Advanced Degree"
   ),
+
   data.frame(
     Age = to_be_predicted2$Age,
     Predicted_Income = to_be_predicted2$yhat,
@@ -536,9 +958,7 @@ prediction_data <- rbind(
 )
 
 
-# ============================================================
-# 24. GRAPH: PREDICTED INCOME
-# ============================================================
+# GRAPH: PREDICTED INCOME BY AGE AND EDUCATION
 
 ggplot(
   prediction_data,
@@ -549,12 +969,15 @@ ggplot(
     linetype = Education
   )
 ) +
+
   geom_line(
     linewidth = 1.2
   ) +
+
   scale_y_continuous(
     labels = dollar_format()
   ) +
+
   labs(
     title = "Predicted Income by Age and Education",
     subtitle = "Black Hispanic Female, Ages 25-55",
@@ -563,65 +986,136 @@ ggplot(
     color = "Education",
     linetype = "Education"
   ) +
+
   theme_minimal(base_size = 12) +
+
   theme(
     plot.title = element_text(
       face = "bold",
       size = 16
     ),
+
     legend.position = "bottom",
     panel.grid.minor = element_blank()
   )
 
 
-# ============================================================
-# 25. LOG-INCOME REGRESSION
-# ============================================================
+# LOG-INCOME MODEL
 
 model_log <- lm(
+
   log(income_midpoint) ~
+
     Age +
+
     Gender +
+
     Education +
+
     Race +
+
     Hispanic,
+
   data = prime_age_laborforce_data
 )
 
-summary(model_log)
 
+# TABLE 10: LOG-INCOME REGRESSION RESULTS
 
-# ============================================================
-# 26. COMPARE LEVEL AND LOG MODEL PREDICTIONS
-# ============================================================
+log_results <-
+  summary(model_log)$coefficients
 
-predicted_level <- predict(
-  model_1
+log_table <- data.frame(
+
+  Variable =
+    rownames(log_results),
+
+  Coefficient =
+    log_results[, 1],
+
+  Standard_Error =
+    log_results[, 2],
+
+  T_Statistic =
+    log_results[, 3],
+
+  P_Value =
+    log_results[, 4],
+
+  row.names = NULL
 )
 
-predicted_log <- predict(
-  model_log
+log_table <- log_table %>%
+  mutate(
+
+    Coefficient = round(
+      Coefficient,
+      4
+    ),
+
+    Standard_Error = round(
+      Standard_Error,
+      4
+    ),
+
+    T_Statistic = round(
+      T_Statistic,
+      2
+    ),
+
+    P_Value = round(
+      P_Value,
+      4
+    )
+  )
+
+log_table_display <- log_table
+
+names(log_table_display) <- c(
+  "Variable",
+  "Coefficient",
+  "Std. Error",
+  "t-stat",
+  "p-value"
 )
 
-predicted_log_income <- exp(
-  predicted_log
+show_table(
+  log_table_display,
+  "Table 10: Log-Income Regression Results"
 )
+
+
+# TABLE 11: ACTUAL AND PREDICTED MEAN INCOME
+
+predicted_level <-
+  predict(model_1)
+
+predicted_log <-
+  predict(model_log)
+
+predicted_log_income <-
+  exp(predicted_log)
 
 comparison <- data.frame(
+
   Measure = c(
     "Actual Mean Income",
     "Mean Predicted Income - Level Model",
     "Mean Predicted Income - Log Model"
   ),
+
   Mean_Income = c(
+
     mean(
       prime_age_laborforce_data$income_midpoint,
       na.rm = TRUE
     ),
+
     mean(
       predicted_level,
       na.rm = TRUE
     ),
+
     mean(
       predicted_log_income,
       na.rm = TRUE
@@ -629,65 +1123,102 @@ comparison <- data.frame(
   )
 )
 
-comparison_table <- comparison %>%
-  mutate(
-    Mean_Income = dollar(
-      Mean_Income
-    )
+comparison$Mean_Income <-
+  dollar(
+    comparison$Mean_Income,
+    accuracy = 1
   )
 
-print(comparison_table)
+show_table(
+  comparison,
+  "Table 11: Actual and Predicted Mean Income"
+)
 
 
-# ============================================================
-# 27. REGRESSION WITH AGE SQUARED
-# ============================================================
+# AGE-SQUARED MODEL
 
 model_age_squared <- lm(
+
   income_midpoint ~
+
     Age +
+
     I(Age^2) +
+
     Gender +
+
     Education +
+
     Race +
+
     Hispanic,
+
   data = prime_age_laborforce_data
 )
 
-summary(model_age_squared)
 
+# TABLE 12: AGE-SQUARED REGRESSION RESULTS
 
-# ============================================================
-# 28. FINAL MODEL COMPARISON
-# ============================================================
+age_squared_results <-
+  summary(model_age_squared)$coefficients
 
-cat(
-  "\n\n==============================\n",
-  "LEVEL MODEL\n",
-  "==============================\n"
+age_squared_table <- data.frame(
+
+  Variable =
+    rownames(age_squared_results),
+
+  Coefficient =
+    age_squared_results[, 1],
+
+  Standard_Error =
+    age_squared_results[, 2],
+
+  T_Statistic =
+    age_squared_results[, 3],
+
+  P_Value =
+    age_squared_results[, 4],
+
+  row.names = NULL
 )
 
-print(
-  summary(model_1)
+age_squared_table <- age_squared_table %>%
+  mutate(
+
+    Coefficient = round(
+      Coefficient,
+      2
+    ),
+
+    Standard_Error = round(
+      Standard_Error,
+      2
+    ),
+
+    T_Statistic = round(
+      T_Statistic,
+      2
+    ),
+
+    P_Value = round(
+      P_Value,
+      4
+    )
+  )
+
+age_squared_table_display <-
+  age_squared_table
+
+names(age_squared_table_display) <- c(
+  "Variable",
+  "Coefficient",
+  "Std. Error",
+  "t-stat",
+  "p-value"
 )
 
-cat(
-  "\n\n==============================\n",
-  "LOG-INCOME MODEL\n",
-  "==============================\n"
-)
-
-print(
-  summary(model_log)
-)
-
-cat(
-  "\n\n==============================\n",
-  "AGE-SQUARED MODEL\n",
-  "==============================\n"
-)
-
-print(
-  summary(model_age_squared)
+show_table(
+  age_squared_table_display,
+  "Table 12: Regression with Age Squared"
 )
 ```
