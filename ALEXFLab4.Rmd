@@ -1,0 +1,693 @@
+---
+title: "Lab 4 - Mincer Wage Regression"
+output: html_document
+date: "2026-10-01"
+---
+
+```{r}
+# ============================================================
+# LAB 4 - MINCER WAGE REGRESSION
+# Race, Education, Age, Gender, Hispanic Status, and Income
+# ============================================================
+
+
+# ============================================================
+# 1. LOAD PACKAGES
+# ============================================================
+
+library(dplyr)
+library(ggplot2)
+library(AER)
+
+# If "scales" is not installed, run this ONCE in the Console:
+# install.packages("scales")
+
+library(scales)
+
+
+# ============================================================
+# 2. LOAD THE HOUSEHOLD PULSE DATA
+# ============================================================
+
+# OPTION 1:
+# This lets you manually select d_HHP2020_241.Rdata.
+# This is the safest option if R cannot find the file.
+
+load(file.choose())
+
+# After the window opens, select:
+# d_HHP2020_241.Rdata
+
+
+# ============================================================
+# 3. CREATE PRIME-AGE LABOR FORCE SAMPLE
+# ============================================================
+
+prime_age_laborforce_data <- d_HHP2020_24 %>%
+  filter(
+    !is.na(work_kind),
+    Age >= 25,
+    Age <= 55,
+    income_midpoint > 0
+  )
+
+
+# ============================================================
+# 4. CHECK THE DATA
+# ============================================================
+
+summary(prime_age_laborforce_data)
+
+summary(prime_age_laborforce_data$Age)
+
+summary(prime_age_laborforce_data$income_midpoint)
+
+
+# ============================================================
+# 5. BASIC CROSSTABS
+# ============================================================
+
+table(prime_age_laborforce_data$Education)
+
+table(prime_age_laborforce_data$Gender)
+
+table(prime_age_laborforce_data$Race)
+
+table(prime_age_laborforce_data$Hispanic)
+
+table(
+  prime_age_laborforce_data$Education,
+  prime_age_laborforce_data$Race
+)
+
+
+# ============================================================
+# 6. MEAN INCOME BY EDUCATION
+# ============================================================
+
+mean_income_education <- prime_age_laborforce_data %>%
+  group_by(Education) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+# Make income easier to read
+mean_income_education_table <- mean_income_education %>%
+  mutate(
+    Mean_Income = dollar(Mean_Income)
+  )
+
+print(mean_income_education_table)
+
+
+# ============================================================
+# 7. MEAN INCOME BY RACE
+# ============================================================
+
+mean_income_race <- prime_age_laborforce_data %>%
+  group_by(Race) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+mean_income_race_table <- mean_income_race %>%
+  mutate(
+    Mean_Income = dollar(Mean_Income)
+  )
+
+print(mean_income_race_table)
+
+
+# ============================================================
+# 8. GRAPH: MEAN INCOME BY RACE
+# ============================================================
+
+ggplot(
+  mean_income_race,
+  aes(
+    x = Race,
+    y = Mean_Income,
+    fill = Race
+  )
+) +
+  geom_col(
+    width = 0.7,
+    show.legend = FALSE
+  ) +
+  scale_y_continuous(
+    labels = dollar_format(),
+    expand = expansion(
+      mult = c(0, 0.08)
+    )
+  ) +
+  labs(
+    title = "Mean Income by Race",
+    subtitle = "Prime-Age Workers, Ages 25-55",
+    x = "Race",
+    y = "Mean Income"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 9. MEAN INCOME BY RACE AND EDUCATION
+# ============================================================
+
+mean_income_race_education <-
+  prime_age_laborforce_data %>%
+  group_by(
+    Race,
+    Education
+  ) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+mean_income_race_education_table <-
+  mean_income_race_education %>%
+  mutate(
+    Mean_Income = dollar(Mean_Income)
+  )
+
+print(mean_income_race_education_table)
+
+
+# ============================================================
+# 10. GRAPH: RACE + EDUCATION
+# ============================================================
+
+ggplot(
+  mean_income_race_education,
+  aes(
+    x = Education,
+    y = Mean_Income,
+    fill = Race
+  )
+) +
+  geom_col(
+    position = position_dodge(
+      width = 0.8
+    ),
+    width = 0.7
+  ) +
+  scale_y_continuous(
+    labels = dollar_format(),
+    expand = expansion(
+      mult = c(0, 0.08)
+    )
+  ) +
+  labs(
+    title = "Mean Income by Race and Education",
+    subtitle = "Prime-Age Workers, Ages 25-55",
+    x = "Education Level",
+    y = "Mean Income",
+    fill = "Race"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1
+    ),
+    legend.position = "bottom",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 11. MEAN INCOME BY RACE AND AGE
+# ============================================================
+
+mean_income_age_race <-
+  prime_age_laborforce_data %>%
+  group_by(
+    Age,
+    Race
+  ) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+
+# ============================================================
+# 12. GRAPH: RACE + AGE
+# ============================================================
+
+ggplot(
+  mean_income_age_race,
+  aes(
+    x = Age,
+    y = Mean_Income,
+    color = Race
+  )
+) +
+  geom_line(
+    linewidth = 1.1
+  ) +
+  scale_y_continuous(
+    labels = dollar_format()
+  ) +
+  labs(
+    title = "Mean Income by Age and Race",
+    subtitle = "Prime-Age Workers, Ages 25-55",
+    x = "Age",
+    y = "Mean Income",
+    color = "Race"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 13. MEAN INCOME BY RACE AND GENDER
+# ============================================================
+
+mean_income_race_gender <-
+  prime_age_laborforce_data %>%
+  group_by(
+    Race,
+    Gender
+  ) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+mean_income_race_gender_table <-
+  mean_income_race_gender %>%
+  mutate(
+    Mean_Income = dollar(Mean_Income)
+  )
+
+print(mean_income_race_gender_table)
+
+
+# ============================================================
+# 14. GRAPH: RACE + GENDER
+# ============================================================
+
+ggplot(
+  mean_income_race_gender,
+  aes(
+    x = Race,
+    y = Mean_Income,
+    fill = Gender
+  )
+) +
+  geom_col(
+    position = "dodge",
+    width = 0.7
+  ) +
+  scale_y_continuous(
+    labels = dollar_format(),
+    expand = expansion(
+      mult = c(0, 0.08)
+    )
+  ) +
+  labs(
+    title = "Mean Income by Race and Gender",
+    subtitle = "Prime-Age Workers, Ages 25-55",
+    x = "Race",
+    y = "Mean Income",
+    fill = "Gender"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    legend.position = "bottom",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 15. MEAN INCOME BY RACE AND HISPANIC STATUS
+# ============================================================
+
+mean_income_race_hispanic <-
+  prime_age_laborforce_data %>%
+  group_by(
+    Race,
+    Hispanic
+  ) %>%
+  summarise(
+    Mean_Income = mean(
+      income_midpoint,
+      na.rm = TRUE
+    ),
+    N = n(),
+    .groups = "drop"
+  )
+
+mean_income_race_hispanic_table <-
+  mean_income_race_hispanic %>%
+  mutate(
+    Mean_Income = dollar(Mean_Income)
+  )
+
+print(mean_income_race_hispanic_table)
+
+
+# ============================================================
+# 16. GRAPH: RACE + HISPANIC STATUS
+# ============================================================
+
+ggplot(
+  mean_income_race_hispanic,
+  aes(
+    x = Race,
+    y = Mean_Income,
+    fill = Hispanic
+  )
+) +
+  geom_col(
+    position = "dodge",
+    width = 0.7
+  ) +
+  scale_y_continuous(
+    labels = dollar_format(),
+    expand = expansion(
+      mult = c(0, 0.08)
+    )
+  ) +
+  labs(
+    title = "Mean Income by Race and Hispanic Status",
+    subtitle = "Prime-Age Workers, Ages 25-55",
+    x = "Race",
+    y = "Mean Income",
+    fill = "Hispanic Status"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    legend.position = "bottom",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 17. MAIN LINEAR REGRESSION
+# ============================================================
+
+model_1 <- lm(
+  income_midpoint ~
+    Age +
+    Gender +
+    Education +
+    Race +
+    Hispanic,
+  data = prime_age_laborforce_data
+)
+
+summary(model_1)
+
+
+# ============================================================
+# 18. CONFIDENCE INTERVALS
+# ============================================================
+
+confint(model_1)
+
+
+# ============================================================
+# 19. CLASSICAL STANDARD ERRORS
+# ============================================================
+
+coeftest(model_1)
+
+
+# ============================================================
+# 20. ROBUST STANDARD ERRORS
+# ============================================================
+
+coeftest(
+  model_1,
+  vcov = vcovHC(
+    model_1,
+    type = "HC1"
+  )
+)
+
+
+# ============================================================
+# 21. PREDICTED VALUES:
+# BLACK HISPANIC FEMALE WITH ADVANCED DEGREE
+# ============================================================
+
+to_be_predicted1 <- data.frame(
+  Age = 25:55,
+  Gender = "female",
+  Education = "adv degree",
+  Race = "Black",
+  Hispanic = "Hispanic"
+)
+
+to_be_predicted1$yhat <- predict(
+  model_1,
+  newdata = to_be_predicted1
+)
+
+
+# ============================================================
+# 22. PREDICTED VALUES:
+# SAME PROFILE WITH HIGH SCHOOL EDUCATION
+# ============================================================
+
+to_be_predicted2 <- data.frame(
+  Age = 25:55,
+  Gender = "female",
+  Education = "high school",
+  Race = "Black",
+  Hispanic = "Hispanic"
+)
+
+to_be_predicted2$yhat <- predict(
+  model_1,
+  newdata = to_be_predicted2
+)
+
+
+# ============================================================
+# 23. COMBINE PREDICTIONS
+# ============================================================
+
+prediction_data <- rbind(
+  data.frame(
+    Age = to_be_predicted1$Age,
+    Predicted_Income = to_be_predicted1$yhat,
+    Education = "Advanced Degree"
+  ),
+  data.frame(
+    Age = to_be_predicted2$Age,
+    Predicted_Income = to_be_predicted2$yhat,
+    Education = "High School"
+  )
+)
+
+
+# ============================================================
+# 24. GRAPH: PREDICTED INCOME
+# ============================================================
+
+ggplot(
+  prediction_data,
+  aes(
+    x = Age,
+    y = Predicted_Income,
+    color = Education,
+    linetype = Education
+  )
+) +
+  geom_line(
+    linewidth = 1.2
+  ) +
+  scale_y_continuous(
+    labels = dollar_format()
+  ) +
+  labs(
+    title = "Predicted Income by Age and Education",
+    subtitle = "Black Hispanic Female, Ages 25-55",
+    x = "Age",
+    y = "Predicted Income",
+    color = "Education",
+    linetype = "Education"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 16
+    ),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+
+# ============================================================
+# 25. LOG-INCOME REGRESSION
+# ============================================================
+
+model_log <- lm(
+  log(income_midpoint) ~
+    Age +
+    Gender +
+    Education +
+    Race +
+    Hispanic,
+  data = prime_age_laborforce_data
+)
+
+summary(model_log)
+
+
+# ============================================================
+# 26. COMPARE LEVEL AND LOG MODEL PREDICTIONS
+# ============================================================
+
+predicted_level <- predict(
+  model_1
+)
+
+predicted_log <- predict(
+  model_log
+)
+
+predicted_log_income <- exp(
+  predicted_log
+)
+
+comparison <- data.frame(
+  Measure = c(
+    "Actual Mean Income",
+    "Mean Predicted Income - Level Model",
+    "Mean Predicted Income - Log Model"
+  ),
+  Mean_Income = c(
+    mean(
+      prime_age_laborforce_data$income_midpoint,
+      na.rm = TRUE
+    ),
+    mean(
+      predicted_level,
+      na.rm = TRUE
+    ),
+    mean(
+      predicted_log_income,
+      na.rm = TRUE
+    )
+  )
+)
+
+comparison_table <- comparison %>%
+  mutate(
+    Mean_Income = dollar(
+      Mean_Income
+    )
+  )
+
+print(comparison_table)
+
+
+# ============================================================
+# 27. REGRESSION WITH AGE SQUARED
+# ============================================================
+
+model_age_squared <- lm(
+  income_midpoint ~
+    Age +
+    I(Age^2) +
+    Gender +
+    Education +
+    Race +
+    Hispanic,
+  data = prime_age_laborforce_data
+)
+
+summary(model_age_squared)
+
+
+# ============================================================
+# 28. FINAL MODEL COMPARISON
+# ============================================================
+
+cat(
+  "\n\n==============================\n",
+  "LEVEL MODEL\n",
+  "==============================\n"
+)
+
+print(
+  summary(model_1)
+)
+
+cat(
+  "\n\n==============================\n",
+  "LOG-INCOME MODEL\n",
+  "==============================\n"
+)
+
+print(
+  summary(model_log)
+)
+
+cat(
+  "\n\n==============================\n",
+  "AGE-SQUARED MODEL\n",
+  "==============================\n"
+)
+
+print(
+  summary(model_age_squared)
+)
+```
